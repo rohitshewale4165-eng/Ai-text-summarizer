@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Text Summarizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrapper">
+  <h1>Text Summarizer</h1>
+  <p class="sub"></p>
+
+  <div class="box">
+    <label>Paste your text below</label>
+    <textarea id="input" placeholder="Paste an article or paragraph here (min 10 words)..."></textarea>
+    <div class="row">
+      <span id="wcount">0 words</span>
+      <button id="sample-btn">Load Sample</button>
+    </div>
+  </div>
+
+  <button id="submit-btn">Summarize</button>
+
+  <div id="error" class="error hidden"></div>
+
+  <div id="result" class="result hidden">
+    <h2>Summary</h2>
+    <p id="summary-text"></p>
+    <div class="stats">
+      <span>Time: <strong id="s-time"></strong>s</span>
+      <span>Original: <strong id="s-orig"></strong> words</span>
+      <span>Summary: <strong id="s-sum"></strong> words</span>
+      <span>Reduced: <strong id="s-ratio"></strong>%</span>
+    </div>
+    <button id="copy-btn">Copy Summary</button>
+  </div>
+</div>
+
+<script>
+const sample = "Sir, the way you lead Innosphere Consulting is genuinely inspiring. A strong company culture doesn’t happen by accident — it reflects the vision and mindset of the person leading it. Your professionalism, clarity, and the way you motivate people create an environment where growth feels natural. It’s rare to see a director who balances leadership with humility so well. People may join a company for opportunities, but they stay because of leaders who make them believe in the journey — and that’s exactly the impact you create, Amol Sir.";
+
+document.getElementById("sample-btn").onclick = () => {
+  document.getElementById("input").value = sample;
+  updateCount();
+};
+
+document.getElementById("input").addEventListener("input", updateCount);
+
+function updateCount() {
+  const words = document.getElementById("input").value.trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById("wcount").textContent = words + " words";
+}
+
+document.getElementById("submit-btn").onclick = async () => {
+  const text = document.getElementById("input").value.trim();
+  const errBox = document.getElementById("error");
+  const result = document.getElementById("result");
+  const btn = document.getElementById("submit-btn");
+
+  errBox.classList.add("hidden");
+  result.classList.add("hidden");
+
+  if (!text || text.split(/\s+/).length < 10) {
+    errBox.textContent = "Please enter at least 10 words.";
+    errBox.classList.remove("hidden");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Summarizing Sir...";
+
+  try {
+    const res = await fetch("/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      errBox.textContent = data.error;
+      errBox.classList.remove("hidden");
+    } else {
+      document.getElementById("summary-text").textContent = data.summary;
+      document.getElementById("s-time").textContent = data.time;
+      document.getElementById("s-orig").textContent = data.original_words;
+      document.getElementById("s-sum").textContent = data.summary_words;
+      const ratio = Math.round((1 - data.summary_words / data.original_words) * 100);
+      document.getElementById("s-ratio").textContent = ratio;
+      result.classList.remove("hidden");
+    }
+  } catch (e) {
+    errBox.textContent = "Network error. Make sure the server is running.";
+    errBox.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Summarize";
+  }
+};
+
+document.getElementById("copy-btn").onclick = () => {
+  const text = document.getElementById("summary-text").textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById("copy-btn").textContent = "Copied!";
+    setTimeout(() => document.getElementById("copy-btn").textContent = "Copy Summary", 1500);
+  });
+};
+</script>
+</body>
+</html>
